@@ -11,13 +11,16 @@
         <button onclick="dispose()">Cancel</button>
         <button onclick="save()">Save</button>
       </div>
-      
+
+      <script src="js/residentialDistrict.js"></script>
       <script src="js/Editorgraph.js"></script>
       <script src="js/viewport.js"></script>
       <script src="js/math/utils.js"></script>
       <script src="js/math/graph.js"></script>
       <script src="js/point.js"></script>
       <script src="js/segment.js"></script>
+      <script src="js/polygon.js"></script>
+      <script src="js/envelope.js"></script>
       <script>
          myCanvas.width = 600;
          myCanvas.height = 600;
@@ -29,13 +32,17 @@
          const graph = graphInfo
             ? Graph.load(graphInfo)
             : new Graph();
+         const residentialdistrict = new residentialDistrict(graph);
          const viewport = new Viewport(myCanvas);
          const editorgraph = new Editorgraph(viewport, graph);
 
          animate();
 
          function animate() {
-            ctx.clearRect(0,0,myCanvas.width, myCanvas.height);
+            viewport.reset();
+            residentialdistrict.generate();
+            residentialdistrict.draw(ctx);
+            ctx.globalAlpha = 0.3;
             editorgraph.display();
             requestAnimationFrame(animate);
          }
