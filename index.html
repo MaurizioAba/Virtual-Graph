@@ -36,11 +36,15 @@
          const viewport = new Viewport(myCanvas);
          const editorgraph = new Editorgraph(viewport, graph);
 
+         let oldGraphHash = graph.hash();
          animate();
 
          function animate() {
             viewport.reset();
-            residentialdistrict.generate();
+            if(graph.hash() != oldGraphHash) {
+               residentialdistrict.generate();
+               oldGraphHash = graph.hash();
+            }
             residentialdistrict.draw(ctx);
             ctx.globalAlpha = 0.3;
             editorgraph.display();
