@@ -2,8 +2,17 @@ const HALF_PI = Math.PI / 2;
 
 class Envelope {
     constructor(skeleton, width, roundness = 1) {
+        if(skeleton) {
         this.skeleton = skeleton;
         this.poly = this.generatePolygon(width, roundness);
+        }
+    }
+
+    static load(info) {
+        const env = new Envelope();
+        env.skeleton = new getNearestSegment(info.skeleton.p1, info.skeleton.p2);
+        env.poly = Polygon.load(info.poly);
+        return env;
     }
 
     generatePolygon(width, roundness) {

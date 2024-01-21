@@ -19,11 +19,34 @@ class residentialDistrict {
         this.roadBorders = [];
         this.buildings = [];
         this.trees = [];
+        this.laneGuides = [];
  
        this.envelopes = [];
        this.roadBorders = [];
  
+       this.markings = [];
+
        this.generate();
+    }
+
+    static load(info){
+      const residentialdistrict= new residentialDistrict(new Graph());
+      residentialdistrict.graph = Graph.load(info.graph);
+      residentialdistrict.roadWidth = info.roadWidth;
+      residentialdistrict.roadRoundness = info.roadRoundness;
+      residentialdistrict.buildingWidth = info.buildingWidth;
+      residentialdistrict.buildingMinLength = info.buildingMinLength;
+      residentialdistrict.spacing = info.spacing;
+      residentialdistrict.treeSize = info.treeSize;
+      residentialdistrict.envelopes = info.envelopes.map((e) => Envelope.load(e));
+      residentialdistrict.roadBorders = info.roadBorders.map((b) => new Segment(b.p1, b.p2));
+      residentialdistrict.buildings = info.buildings.map((e) => Building.load(e));
+      residentialdistrict.trees = info.trees.map((t) => new Tree(t.center, info.treeSize));
+      residentialdistrict.laneGuides = info.laneGuides.map((g) => new Segment(g.p1, g.p2));
+      residentialdistrict.info.markings.map((m)=> Markings.load(m));
+      residentialdistrict.zoom = info.zoom;
+      residentialdistrict.offset = info.offset;
+      return residentialdistrict;
     }
  
     generate() {
@@ -32,15 +55,33 @@ class residentialDistrict {
             new Envelope(seg, this.roadWidth, this.roadRoundness)
         );
 
-        this.roadBorders = Polygon.union(this.envelopes.map(e => e.poly));
+        this.roadBorders = Polygon.union(this.envelopes.map((e) => e.poly));
         this.buildings = this.#generateBuildings();
         this.trees = this.#generateTrees();
+
+        this.laneGuides.length = 0;
+        this.laneGuides.push(...this.#generateLaneGuides());
+    }
+
+    #generateLaneGuides() {
+      const tmpEnvelopes = [];
+        for (const seg of this.graph.segments) {
+           tmpEnvelopes.push(
+              new Envelope(
+                 seg,
+                 this.roadWidth / 2,
+                 this.roadRoundness
+              )
+           );
+        }
+        const segments = Polygon.union(tmpEnvelopes.map((e) => e.poly));
+        return segments;
     }
 
     #generateTrees() {
         const points = [
            ...this.roadBorders.map((s) => [s.p1, s.p2]).flat(),
-           ...this.buildings.map((b) => b.points).flat()
+           ...this.buildings.map((b) => b.base.points).flat()
         ];
         const left = Math.min(...points.map((p) => p.x));
         const right = Math.max(...points.map((p) => p.x));
@@ -48,7 +89,7 @@ class residentialDistrict {
         const bottom = Math.max(...points.map((p) => p.y));
   
         const illegalPolys = [
-           ...this.buildings,
+           ...this.buildings.map((b) => b.base ),
            ...this.envelopes.map((e) => e.poly)
         ];
   
@@ -70,7 +111,7 @@ class residentialDistrict {
   
            if (keep) {
               for (const tree of trees) {
-                 if (distance(tree, p) < this.treeSize) {
+                 if (distance(tree.center, p) < this.treeSize) {
                     keep = false;
                     break;
                  }
@@ -89,8 +130,8 @@ class residentialDistrict {
            }
   
            if (keep) {
-              trees.push(p);
-              tryCount = 0;
+            trees.push(new Tree(p, this.treeSize));
+            tryCount = 0;
            }
            tryCount++;
         }
@@ -159,22 +200,34 @@ class residentialDistrict {
            }
         }
 
-        return bases;
+        return bases.map((b) => new Building(b));
      }
 
-     draw(ctx) {
+     draw(ctx, viewPoint) {
         const commonDrawOptions = { color: "white", width: 4 };
     
         this.envelopes.forEach(env => env.draw(ctx, { fill: "#BBB", stroke: "#BBB", lineWidth: 15 }));
+        for (const markings of this.markings){
+         markings.draw(ctx);
+        }
         this.graph.segments.forEach(seg => seg.draw(ctx, { ...commonDrawOptions, dash: [10, 10] }));
         this.roadBorders.forEach(seg => seg.draw(ctx, commonDrawOptions));
     
-        for (const tree of this.trees) {
-            tree.draw(ctx, { size: this.treeSize, color: "rgba(0,0,0,0.5)" });
-        }
-    
-        for (const bld of this.buildings) {
-            bld.draw(ctx);
-        }
-    }
+        const items = [...this.buildings, ...this.trees];
+        items.sort(
+         (a, b) =>
+            b.base.distanceToPoint(viewPoint) -
+            a.base.distanceToPoint(viewPoint)
+        );
+        for (const item of items) {
+            item.draw(ctx, viewPoint);
+         }
+
+         // for(const seg of this.laneGuides){
+         //    seg.draw(ctx, {
+         //       color:"red"
+         //    });
+         // }
+
+      }
 }
