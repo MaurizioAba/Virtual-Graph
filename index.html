@@ -10,11 +10,47 @@
       <div id="controls">
         <button onclick="dispose()">Cancel</button>
         <button onclick="save()">Save</button>
+        <label for="fileInput" class="file-input-labe">
+         📁
+            <input
+               type="file"
+               id="fileInput"
+               accept=".residentialdistrict"
+               onchange="load(event)"
+            />
+        </label>
+        &nbsp;
+        <button id="graphBtn" onclick="setMode('graph')">mondo</button>
+        <button id="stopBtn" onclick="setMode('stop')">🛑</button>
+        <button id="yieldBtn" onclick="setMode('yield')">⚠️</button>
+        <button id="crossingBtn" onclick="setMode('crossing')">crossing</button>
+        <button id="startBtn" onclick="setMode('start')">🚙</button>
+        <button id="parkingBtn" onclick="setMode('parking')">🅿️</button>
+        <button id="lightBtn" onclick="setMode('light')">🚦</button>
+        <button id="targetBtn" onclick="setMode('target')">🎯</button>
       </div>
 
       <script src="js/residentialDistrict.js"></script>
-      <script src="js/Editorgraph.js"></script>
       <script src="js/viewport.js"></script>
+      <script src="js/markings/marking.js"></script>
+      <script src="js/markings/stop.js"></script>
+      <script src="js/markings/start.js"></script>
+      <script src="js/markings/crossing.js"></script>
+      <script src="js/markings/parking.js"></script>
+      <script src="js/markings/light.js"></script>
+      <script src="js/markings/target.js"></script>
+      <script src="js/markings/yield.js"></script>
+      <script src="js/editors/markingEditor.js"></script>
+      <script src="js/editors/Editorgraph.js"></script>
+      <script src="js/editors/crossingEditor.js"></script>
+      <script src="js/editors/stopEditor.js"></script>
+      <script src="js/editors/startEditor.js"></script>
+      <script src="js/editors/parkingEditor.js"></script>
+      <script src="js/editors/lightEditor.js"></script>
+      <script src="js/editors/targetEditor.js"></script>
+      <script src="js/editors/yieldEditor.js"></script>
+      <script src="js/items/tree.js"></script>
+      <script src="js/items/building.js"></script>
       <script src="js/math/utils.js"></script>
       <script src="js/math/graph.js"></script>
       <script src="js/point.js"></script>
@@ -27,38 +63,104 @@
 
          const ctx = myCanvas.getContext("2d");
 
-         const graphString = localStorage.getItem("graph");
-         const graphInfo = graphString ? JSON.parse(graphString) : null;
-         const graph = graphInfo
-            ? Graph.load(graphInfo)
-            : new Graph();
-         const residentialdistrict = new residentialDistrict(graph);
-         const viewport = new Viewport(myCanvas);
-         const editorgraph = new Editorgraph(viewport, graph);
+         const residentialDistrictString = localStorage.getItem("residentialDistrict");
+         const residentialDistrictInfo = residentialDistrictString ? JSON.parse(residentialDistrictString) : null;
+         let residentialdistrict = residentialDistrictInfo
+            ? residentialDistrict.load(residentialDistrictInfo)
+            : new residentialDistrict(new Graph());
+         const graph = residentialdistrict.graph; 
+
+         const viewport = new Viewport(myCanvas, residentialdistrict.zoom, residentialdistrict.offset);
+
+         const tools = {
+            graph: { button: graphBtn, editor: new Editorgraph(viewport, graph) },
+            stop: { button: stopBtn, editor: new StopEditor(viewport, residentialdistrict) },
+            crossing: { button: crossingBtn,  editor: new CrossingEditor(viewport, residentialdistrict) },
+            start: { button: startBtn,  editor: new StartEditor(viewport, residentialdistrict) },
+            parking: { button: parkingBtn,  editor: new ParkingEditor(viewport, residentialdistrict) },
+            light: { button: lightBtn,  editor: new LightEditor(viewport, residentialdistrict) },
+            target: { button: targetBtn,  editor: new TargetEditor(viewport, residentialdistrict) },
+            yield: { button: yieldBtn,  editor: new YieldEditor(viewport, residentialdistrict) },
+         };
 
          let oldGraphHash = graph.hash();
+
+         setMode("graph");
+
          animate();
 
          function animate() {
             viewport.reset();
-            if(graph.hash() != oldGraphHash) {
+            if (graph.hash() != oldGraphHash) {
                residentialdistrict.generate();
                oldGraphHash = graph.hash();
             }
-            residentialdistrict.draw(ctx);
+            const viewPoint = scale(viewport.getOffset(), -1);
+            residentialdistrict.draw(ctx, viewPoint);
             ctx.globalAlpha = 0.3;
-            editorgraph.display();
+            for (const tool of Object.values(tools)) {
+               tool.editor.display();
+            }
             requestAnimationFrame(animate);
          }
 
          function dispose() {
-            editorgraph.dispose();
+            tools["graph"].editor.dispose();
+            residentialdistrict.markings.lenght = 0;
          }
 
          function save() {
-            localStorage.setItem("graph", JSON.stringify(graph));
+            residentialdistrict.zoom = viewport.zoom;
+            residentialdistrict = viewport.offset;
+
+            const element = document.createElement("a");
+            element.setAttribute(
+               "href",
+               "data:application/json;charset=utf-8," +
+                  encodeURIComponent(JSON.stringify(residentialdistrict))
+            );
+
+            const fileName = "name.residentialdistrict";
+            element.setAttribute("download", fileName);
+
+            element.click();
+            localStorage.setItem("residentialdistrict", JSON.stringify(residentialdistrict));
          }
 
+         function load(event){
+            const file = event.target.files[0];
+            if(!file){
+               alert("No file selected.");
+               return;
+            }
+
+            const reader = new FileReader();
+            reader.roadAsText(file);
+
+            render.onload = (evt) => {
+               const fileContent = ext.target.result;
+               const jsonData = JSON.parse(fileContent);
+               residentialdistrict = residentialDistrict.load(jsonData);
+               localStorage.setItem("residentialdistrict", JSON.stringify(residentialdistrict));
+               location.reload();
+            }
+         }
+
+         function setMode(mode){
+            deactivateEditors();
+               tools[mode].button.style.backgroundColor = "white";
+               tools[mode].button.style.filter = "";
+               tools[mode].editor.enable();
+               
+         }
+
+         function deactivateEditors(){
+            for (const tool of Object.values(tools)) {
+               tool.button.style.backgroundColor = "gray";
+               tool.button.style.filter = "grayscale(100%)";
+               tool.editor.disable();
+            }
+         }
       </script>
    </body>
 </html>

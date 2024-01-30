@@ -11,3 +11,17 @@ body {
  #myCanvas {
     background-color: rgb(48, 170, 34);
  }
+
+ button, .file-input-label {
+   display: inline-block;
+   background-color: white;
+   font-size: 20px;
+   padding: 5px 7px 7px 5px;
+   border: none;
+   border-radius: 5px;
+   text-shadow: 1px 1px black;
+ }
+
+ input [type="file"]{
+   display: none;
+ }
